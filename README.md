@@ -1,6 +1,8 @@
 BGD-Work
 ========
 
-Codes et Travaux réalisés lors de la formation BGD à Télécom ParisTech.
+Big Data work created during the mastere BGD at Telecom ParisTech.
 
-- Shavadoop : une version de wordcount distribuée sur un reseau par ssh.
+- Shavadoop : a version of WordCount distributed through ssh.
+
+- Data Visualization : a visualization of the population in france using Processing.
