@@ -9,7 +9,6 @@ zminX, zmaxX =0, 0
 zminY, zmaxY =0, 0
 maxdensity = 0
 zoomLevel = 0
-zoomcenter = []
 black = color(0)
 minValPop = 1000
 placesel = 0
@@ -22,8 +21,10 @@ depinput=[]
 depPlaces=[]
 konamicode = [UP,UP,DOWN,DOWN,LEFT,RIGHT,LEFT,RIGHT,"b","a"]
 konaminum=0
-
-
+Totpop = 0
+showpop = 0
+dragging = False
+citydragged = 0
 
 ###############################################################################################
 #### Setup du projet
@@ -41,31 +42,27 @@ def setup():
 #### Fonction de dessin processing 
                                                                                        
 def draw():
-    global minValPop
+    global minValPop,showpop
     textFont(labelFont, 32)
     background(255)
+    showpop = 0
     for place in places:
         if place.population > minValPop and place.inzoom():
             place.drawp()
             place.drawc()
-    #for place in places:
-    #   if place.population > minValPop:
-    #place.drawc()
-
+            showpop+= place.population
+    
+    if dep!=0:
+        for place in depPlaces[dep]:
+            place.drawps()
+            place.drawcs()
+            
     drawSelectedCity()
     fill(255)
     rect(800,0,400,800)
     drawLegend()
     if konaminum == 10:
-        textFont(labelFont, 60)
-        text("YOU WON", 600,600)
-        fill(255,255,0)
-        triangle(100, 500, 200, 300, 300, 500)
-        triangle(300, 500, 400, 300, 500, 500)
-        triangle(200, 300, 300, 100, 400, 300)
-        
-    
-
+        drawkon()
 
 
 
@@ -79,7 +76,7 @@ class Place():
     postalCode = 0
     population = -1
     density = -1
-    #    select = False
+    #select = False
     
     def inzoom(self):
         if self.longitude <= zmaxX and self.longitude >= zminX and self.latitude <= zmaxY and self.latitude >= zminY:
@@ -105,7 +102,12 @@ class Place():
         noStroke()
         ellipse(self.x(),self.y(),self.population/20000*(zoomLevel+1),self.population/20000*(zoomLevel+1))
     
+    def drawcs(self):
+        fill(0,255,0,125)
+        noStroke()
+        ellipse(self.x(),self.y(),self.population/20000*(zoomLevel+1),self.population/20000*(zoomLevel+1))
     # methode de dessin des points
+    
     def drawp(self):
         coloration = (1-self.alphas()*30)*200
         if coloration < 0:
@@ -113,6 +115,19 @@ class Place():
         
         try:
             fill(coloration)
+            noStroke()
+            ellipse(self.x(),self.y(),2*(zoomLevel+1),2*(zoomLevel+1))
+                
+        except:
+            pass
+            
+    def drawps(self):
+        coloration = (1-self.alphas()*30)*200
+        if coloration < 0:
+            coloration =0
+        
+        try:
+            fill(0,coloration,0)
             noStroke()
             ellipse(self.x(),self.y(),2*(zoomLevel+1),2*(zoomLevel+1))
                 
@@ -145,7 +160,6 @@ def drawLegend():
     fill(0)
     rect(800,0,2,800)
     textFont(labelFont, 16)
-    text("Population Minimum = " + str(minValPop),810,720)
     rect(800,700,400,2)
     text("City Name",810,20)
     rect(1000,0,2,700)
@@ -162,6 +176,18 @@ def drawLegend():
     textFont(labelFont, 32)
     fill(255,0,0)
     text("RESET",1050,785)
+    fill(255)
+    stroke(0)
+    rect(801,725,299,25)
+    noStroke()
+    fill(0)
+    per = float(showpop)/float(Totpop)
+    rect(800,725,300*per,25)
+    percent = int(per*100)
+    fill(0)
+    textFont(labelFont, 20)
+    text("Population Minimum = " + str(minValPop),810,720)
+    text(str(percent)+"%",800+300*per+5,745)
     
     i=1
     for place in placesSel:
@@ -172,6 +198,12 @@ def drawLegend():
         text(str(place.density),1105,i*25+20)
         rect(800,i*25+25,400,2)
         i+=1
+    if dep !=0:
+        fill(0)
+        textFont(labelFont, 20)
+        text("Department : " + str(dep),805,785) 
+        
+
     
     
 def drawSelectedCity():
@@ -185,8 +217,8 @@ def drawSelectedCity():
             fill(255,0,0,125)
             ellipse(place.x(),place.y(),place.population/20000*(zoomLevel+1),place.population/20000*(zoomLevel+1))
         else:
-            stroke(0,0,255)
-            fill(0,0,255,125)
+            stroke(255,0,0)
+            fill(255,0,0,125)
             ellipse(place.x(),place.y(),2*(zoomLevel+1),2*(zoomLevel+1))
         noStroke()
         fill(255,100)
@@ -212,6 +244,15 @@ def drawSelectedCity():
         fill(0,0,255)
         text(placesel.name,placesel.x()- texWid/2, placesel.y()-10)
         
+        
+def drawkon():
+    textFont(labelFont, 60)
+    text("YOU WON", 300,600)
+    fill(255,255,0)
+    triangle(250, 500, 350, 300, 450, 500)
+    triangle(450, 500, 550, 300, 650, 500)
+    triangle(350, 300, 450, 100, 550, 300)
+        
     
 
 ###############################################################################################
@@ -219,13 +260,13 @@ def drawSelectedCity():
 
 def pick(x,y):
     for place in reversed(places):
-        if place.contains(x,y,2) and place.population >=minValPop:
+        if place.contains(x,y,3+2*(zoomLevel)) and place.population >=minValPop:
             return place
     return 0
 
 def pickzoom(x,y): 
     for place in reversed(places):
-        if place.contains(x,y,10):
+        if place.contains(x,y,5+2*(zoomLevel)):
             return place
     return 0
         
@@ -238,11 +279,10 @@ def removepick(x,y):
             placesSel.remove(placesSel[i])
 
 def resetall(x,y):
-    global placesSel,zoomLevel,minValPop,zmaxX,zminX,zminY,zmaxY,zoomcenter,konaminum,dep,input,inputkonami
+    global placesSel,zoomLevel,minValPop,zmaxX,zminX,zminY,zmaxY,konaminum,dep,input,inputkonami
     if x > 1000 and y > 750:
         placesSel = []
         zoomLevel = 0
-        zoomcenter = []
         minValPop = 1000
         zminX,zmaxX,zminY,zmaxY = minX,maxX,minY,maxY
         konaminum = 0
@@ -254,43 +294,40 @@ def resetall(x,y):
 def zoomin(citycenter):
     global zoomcenter,zminX,zmaxX,zminY,zmaxY,zoomLevel
     zoomLevel +=1
-    zoomcenter.append(citycenter)
     zminX = citycenter.longitude - (maxX-minX)/2/(zoomLevel+1)
     zmaxX = citycenter.longitude + (maxX-minX)/2/(zoomLevel+1)
     zminY = citycenter.latitude - (maxY-minY)/2/(zoomLevel+1)
     zmaxY = citycenter.latitude + (maxY-minY)/2/(zoomLevel+1)
+    redraw()
 
-def zoomout():
-    global zoomcenter,zminX,zmaxX,zminY,zmaxY,zoomLevel
+def zoomout(citycenter):
+    global zminX,zmaxX,zminY,zmaxY,zoomLevel
     zoomLevel -=1
-    zoomcenter.remove(zoomcenter[zoomLevel])
     if zoomLevel == 0:
         zminX = minX
         zmaxX = maxX
         zminY = minY
         zmaxY = maxY
     else:
-        citycenter = zoomcenter[zoomLevel - 1]
         zminX = citycenter.longitude - (maxX-minX)/2/(zoomLevel+1)
         zmaxX = citycenter.longitude + (maxX-minX)/2/(zoomLevel+1)
         zminY = citycenter.latitude - (maxY-minY)/2/(zoomLevel+1)
         zmaxY = citycenter.latitude + (maxY-minY)/2/(zoomLevel+1)
+    redraw()
 
 def zoomindep():
-    global zoomcenter,zminX,zmaxX,zminY,zmaxY,zoomLevel
+    global zminX,zmaxX,zminY,zmaxY,zoomLevel
     print dep , len(depPlaces[dep])
-    zoomLevel = 5
-    zoomcenter = []
-    for i in range(0,5):
-        zoomcenter.append(depPlaces[dep][0])
-        
-    zminX = min(depPlaces[dep], key=lambda place: place.longitude).longitude - (maxX-minX)/2/(zoomLevel+1)
-    zmaxX = max(depPlaces[dep], key=lambda place: place.longitude).longitude + (maxX-minX)/2/(zoomLevel+1) 
-    zminY = min(depPlaces[dep], key=lambda place: place.latitude).latitude - (maxY-minY)/2/(zoomLevel+1)
-    zmaxY = max(depPlaces[dep], key=lambda place: place.latitude).latitude + (maxY-minY)/2/(zoomLevel+1)
-
+    if dep != 0:
+        zoomLevel = 7         
+        zminX = min(depPlaces[dep], key=lambda place: place.longitude).longitude - (maxX-minX)/2/(zoomLevel+1)
+        zmaxX = max(depPlaces[dep], key=lambda place: place.longitude).longitude + (maxX-minX)/2/(zoomLevel+1) 
+        zminY = min(depPlaces[dep], key=lambda place: place.latitude).latitude - (maxY-minY)/2/(zoomLevel+1)
+        zmaxY = max(depPlaces[dep], key=lambda place: place.latitude).latitude + (maxY-minY)/2/(zoomLevel+1)
+    redraw()
+    
 ###############################################################################################
-#### recherche du point le plus proche
+#### Input MOUSE and KeyBoard
 
 def mouseMoved():
     global placesel
@@ -311,19 +348,29 @@ def mouseClicked():
     redraw()
     
 def mouseDragged():
-    global zoomcenter,zminX,zmaxX,zminY,zmaxY
-    citycenter = pickzoom(mouseX,mouseY)
+    global zminX,zmaxX,zminY,zmaxY,dragging,citydragged
+    if not dragging:
+        citydragged = pickzoom(mouseX,mouseY)
+        if citydragged !=0:
+            dragging = True
+    
     if zoomLevel !=0:
-        if citycenter != 0:
-            zoomcenter.remove(zoomcenter[zoomLevel-1])
-            zoomcenter.append(citycenter)
-            zminX = citycenter.longitude - (maxX-minX)/2/(zoomLevel+1)
-            zmaxX = citycenter.longitude + (maxX-minX)/2/(zoomLevel+1)
-            zminY = citycenter.latitude - (maxY-minY)/2/(zoomLevel+1)
-            zmaxY = citycenter.latitude + (maxY-minY)/2/(zoomLevel+1)
+        if citydragged != 0 and dragging:
+            vecX = mouseX-citydragged.x()
+            vecY = mouseY-citydragged.y()
+            LengthX = (zmaxX - zminX)/800
+            LengthY = (zmaxY - zminY)/800
+            zminX = zminX - vecX*LengthX
+            zmaxX = zmaxX - vecX*LengthX
+            zminY = zminY + vecY*LengthY
+            zmaxY = zmaxY + vecY*LengthY
     redraw()
        
-    
+def mouseReleased():
+    global dragging,citydragged
+    dragging = False
+    citydragged = 0
+    redraw()
 
     
 def keyReleased():
@@ -332,15 +379,14 @@ def keyReleased():
         minValPop = minValPop * 2
     elif keyCode == LEFT and minValPop >1:
         minValPop = minValPop / 2
-    elif keyCode == UP and zoomLevel < 10:
+    elif keyCode == UP and zoomLevel < 50:
         citycenter = pickzoom(mouseX,mouseY)
         if citycenter != 0:
             zoomin(citycenter)
-            
     elif keyCode == DOWN and zoomLevel > 0:
-        zoomout()
-        
-        
+        citycenter = pickzoom(mouseX,mouseY)
+        if citycenter != 0:
+            zoomout(citycenter)
     redraw()
     
 def keyPressed():
@@ -354,22 +400,15 @@ def keyPressed():
             input = False
     if len(depinput) == 2:
         dep = int(depinput[0])*10 + int(depinput[1])*1
-        print dep
         zoomindep()
         depinput = []
     if inputkonami == True:
         if keyCode == konamicode[konaminum] or key == konamicode[konaminum]:
             konaminum +=1
-            print konaminum
-    
     if key == "d":
         input = True
     if key == "k":
         inputkonami = True
-    
-    
-
-    redraw()
     
              
 
@@ -380,7 +419,7 @@ def keyPressed():
 #### Lecture des donnees
         
 def readData():
-    global minX,maxX,minY,maxY,maxdensity,zminX,zminY,zmaxX,zmaxY,maxPop,places,depPlaces
+    global minX,maxX,minY,maxY,maxdensity,zminX,zminY,zmaxX,zmaxY,maxPop,places,depPlaces,Totpop
     lines = loadStrings("population.tsv")
     #print lines # for debugging
     # First line contains metadata
@@ -388,6 +427,7 @@ def readData():
     # Third line and onward contains data cases
     for i in range(0,100):
         depPlaces.append([])
+    Totpop = 0
     for line in lines[2:]:
         columns = line.split("\t")
         place = Place()
@@ -399,12 +439,14 @@ def readData():
         place.density = float(columns[6])
         places.append(place)
         depPlaces[place.postalCode/1000].append(place)
+        Totpop  = Totpop + place.population
 
     minX = min(places, key=lambda x: x.longitude).longitude
     maxX = max(places, key=lambda place: place.longitude).longitude
     minY = min(places, key=lambda place: place.latitude).latitude
     maxY = max(places, key=lambda place: place.latitude).latitude
     maxPop = max(places, key=lambda place : place.population).population
+    
     zminX,zmaxX,zminY,zmaxY = minX,maxX,minY,maxY
     maxdensity = max(places, key=lambda place: place.density).density
     print maxdensity
